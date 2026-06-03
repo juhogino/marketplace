@@ -14,5 +14,6 @@ export default function Index() {
     );
   }
 
+  if (user?.tipo === "admin") return <Redirect href="/(admin)/dashboard" />;
   return <Redirect href={user ? "/(app)/home" : "/(auth)/login"} />;
 }
