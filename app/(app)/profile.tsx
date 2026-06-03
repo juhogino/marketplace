@@ -72,14 +72,25 @@ export default function Profile() {
 
         {/* Ações */}
         {user?.tipo === 'prestador' && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(app)/create-service' as any)}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#3A7DFF" />
-            <Text style={styles.actionButtonText}>Cadastrar novo serviço</Text>
-            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(app)/create-service' as any)}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#3A7DFF" />
+              <Text style={styles.actionButtonText}>Cadastrar novo serviço</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(app)/availability' as any)}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#3A7DFF" />
+              <Text style={styles.actionButtonText}>Gerenciar disponibilidade</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+          </>
         )}
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

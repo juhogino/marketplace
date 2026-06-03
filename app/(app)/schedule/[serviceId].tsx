@@ -6,16 +6,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "@/src/context/AuthContext";
 import { saveSchedule } from "@/src/storage/scheduleStorage";
-
-const HORARIOS = [
-  "08:00", "09:00", "10:00", "11:00",
-  "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
-];
+import { getAvailableSlots } from "@/src/storage/availabilityStorage";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -47,15 +44,26 @@ export default function Schedule() {
   const dias = gerarProximosDias(14);
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
   const [horaSelecionada, setHoraSelecionada] = useState<string | null>(null);
+  const [slotsDisponiveis, setSlotsDisponiveis] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [loading, setLoading] = useState(false);
   const [agendado, setAgendado] = useState(false);
 
-  async function handleConfirmar() {
-    if (!diaSelecionado || !horaSelecionada) {
-      alert("Selecione uma data e um horário");
+  useEffect(() => {
+    if (!diaSelecionado) {
+      setSlotsDisponiveis([]);
+      setHoraSelecionada(null);
       return;
     }
+    setHoraSelecionada(null);
+    setLoadingSlots(true);
+    getAvailableSlots(prestadorEmail, formatarDataISO(diaSelecionado))
+      .then((slots) => setSlotsDisponiveis(slots))
+      .finally(() => setLoadingSlots(false));
+  }, [diaSelecionado]);
 
+  async function handleConfirmar() {
+    if (!diaSelecionado || !horaSelecionada) return;
     setLoading(true);
     try {
       await saveSchedule({
@@ -74,346 +82,379 @@ export default function Schedule() {
     }
   }
 
+  // ── Sucesso ──
   if (agendado) {
-    const dataFormatada = diaSelecionado
-      ? `${diaSelecionado.getDate()} de ${MESES[diaSelecionado.getMonth()]}`
-      : "";
-
     return (
-      <View style={styles.successContainer}>
-        <Ionicons name="calendar-outline" size={90} color="#4A6CF7" />
-        <Text style={styles.successTitle}>Agendado!</Text>
-        <Text style={styles.successText}>
-          Seu agendamento de{" "}
-          <Text style={{ fontWeight: "bold" }}>{titulo}</Text> foi registrado com sucesso.
-        </Text>
-        <View style={styles.successDetail}>
-          <View style={styles.successRow}>
-            <Ionicons name="calendar-outline" size={16} color="#4A6CF7" />
-            <Text style={styles.successDetailText}>{dataFormatada}</Text>
+      <SafeAreaView style={styles.screen} edges={["top", "left", "right", "bottom"]}>
+        <View style={styles.successScreen}>
+          <View style={styles.successIcon}>
+            <Ionicons name="calendar" size={44} color="#FFFFFF" />
           </View>
-          <View style={styles.successRow}>
-            <Ionicons name="time-outline" size={16} color="#4A6CF7" />
-            <Text style={styles.successDetailText}>{horaSelecionada}</Text>
+          <Text style={styles.successTitle}>Agendado!</Text>
+          <Text style={styles.successText}>
+            Seu agendamento de{" "}
+            <Text style={{ fontWeight: "700" }}>{titulo}</Text> foi registrado com sucesso.
+          </Text>
+          <View style={styles.successCard}>
+            {diaSelecionado && (
+              <View style={styles.successRow}>
+                <Ionicons name="calendar-outline" size={16} color="#3A7DFF" />
+                <Text style={styles.successRowText}>
+                  {DIAS_SEMANA[diaSelecionado.getDay()]}, {diaSelecionado.getDate()} de {MESES[diaSelecionado.getMonth()]}
+                </Text>
+              </View>
+            )}
+            {horaSelecionada && (
+              <View style={styles.successRow}>
+                <Ionicons name="time-outline" size={16} color="#3A7DFF" />
+                <Text style={styles.successRowText}>{horaSelecionada}</Text>
+              </View>
+            )}
+            <View style={styles.successRow}>
+              <Ionicons name="person-outline" size={16} color="#3A7DFF" />
+              <Text style={styles.successRowText} numberOfLines={1}>{prestadorEmail}</Text>
+            </View>
           </View>
-          <View style={styles.successRow}>
-            <Ionicons name="person-outline" size={16} color="#4A6CF7" />
-            <Text style={styles.successDetailText}>{prestadorEmail}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.homeButton}
+            onPress={() => router.replace("/(app)/home")}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.homeButtonText}>Voltar ao início</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.homeButton}
-          onPress={() => router.replace("/(app)/home")}
-        >
-          <Text style={styles.buttonText}>Voltar para o início</Text>
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={24} color="#1E3A8A" />
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Agendar serviço</Text>
-
-      <View style={styles.serviceCard}>
-        <Ionicons name="construct-outline" size={18} color="#4A6CF7" />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.serviceTitle}>{titulo}</Text>
-          <Text style={styles.serviceEmail}>{prestadorEmail}</Text>
-        </View>
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color="#0D0D0D" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Agendar serviço</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      {/* Seleção de data */}
-      <Text style={styles.sectionTitle}>Escolha uma data</Text>
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.diasScroll}
-        contentContainerStyle={styles.diasContent}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {dias.map((dia, index) => {
-          const selecionado =
-            diaSelecionado && formatarDataISO(dia) === formatarDataISO(diaSelecionado);
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[styles.diaBtn, selecionado && styles.diaBtnActive]}
-              onPress={() => setDiaSelecionado(dia)}
-            >
-              <Text style={[styles.diaSemana, selecionado && styles.diaTextActive]}>
-                {DIAS_SEMANA[dia.getDay()]}
-              </Text>
-              <Text style={[styles.diaNumero, selecionado && styles.diaTextActive]}>
-                {dia.getDate()}
-              </Text>
-              <Text style={[styles.diaMes, selecionado && styles.diaTextActive]}>
-                {MESES[dia.getMonth()]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+        {/* Info do serviço */}
+        <View style={styles.serviceCard}>
+          <View style={styles.serviceIconBox}>
+            <Ionicons name="construct-outline" size={18} color="#3A7DFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.serviceTitle} numberOfLines={1}>{titulo}</Text>
+            <Text style={styles.serviceEmail} numberOfLines={1}>{prestadorEmail}</Text>
+          </View>
+        </View>
 
-      {/* Seleção de horário */}
-      <Text style={styles.sectionTitle}>Escolha um horário</Text>
-      <View style={styles.horariosGrid}>
-        {HORARIOS.map((hora) => {
-          const selecionado = hora === horaSelecionada;
-          return (
-            <TouchableOpacity
-              key={hora}
-              style={[styles.horaBtn, selecionado && styles.horaBtnActive]}
-              onPress={() => setHoraSelecionada(hora)}
-            >
-              <Text style={[styles.horaText, selecionado && styles.horaTextActive]}>
-                {hora}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+        {/* Seleção de data */}
+        <Text style={styles.sectionTitle}>Escolha uma data</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.diasContent}
+        >
+          {dias.map((dia, index) => {
+            const selecionado =
+              diaSelecionado && formatarDataISO(dia) === formatarDataISO(diaSelecionado);
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[styles.diaBtn, selecionado && styles.diaBtnActive]}
+                onPress={() => setDiaSelecionado(dia)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.diaSemana, selecionado && styles.diaTextActive]}>
+                  {DIAS_SEMANA[dia.getDay()]}
+                </Text>
+                <Text style={[styles.diaNumero, selecionado && styles.diaTextActive]}>
+                  {dia.getDate()}
+                </Text>
+                <Text style={[styles.diaMes, selecionado && styles.diaTextActive]}>
+                  {MESES[dia.getMonth()]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-      {/* Resumo da seleção */}
-      {(diaSelecionado || horaSelecionada) && (
-        <View style={styles.resumoCard}>
-          {diaSelecionado && (
+        {/* Seleção de horário */}
+        <Text style={styles.sectionTitle}>Escolha um horário</Text>
+        {!diaSelecionado ? (
+          <Text style={styles.slotHint}>Selecione uma data para ver os horários disponíveis.</Text>
+        ) : loadingSlots ? (
+          <ActivityIndicator color="#3A7DFF" style={{ marginVertical: 12 }} />
+        ) : slotsDisponiveis.length === 0 ? (
+          <View style={styles.emptySlots}>
+            <Ionicons name="time-outline" size={32} color="#C7C7CC" />
+            <Text style={styles.emptySlotsText}>
+              Nenhum horário disponível para esta data.{"\n"}Tente outro dia.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.horariosGrid}>
+            {slotsDisponiveis.map((hora) => {
+              const selecionado = hora === horaSelecionada;
+              return (
+                <TouchableOpacity
+                  key={hora}
+                  style={[styles.horaBtn, selecionado && styles.horaBtnActive]}
+                  onPress={() => setHoraSelecionada(hora)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.horaText, selecionado && styles.horaTextActive]}>
+                    {hora}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Resumo */}
+        {diaSelecionado && horaSelecionada && (
+          <View style={styles.resumoCard}>
             <View style={styles.resumoRow}>
-              <Ionicons name="calendar-outline" size={16} color="#4A6CF7" />
+              <Ionicons name="calendar-outline" size={14} color="#3A7DFF" />
               <Text style={styles.resumoText}>
-                {DIAS_SEMANA[diaSelecionado.getDay()]},{" "}
-                {diaSelecionado.getDate()} de {MESES[diaSelecionado.getMonth()]}
+                {DIAS_SEMANA[diaSelecionado.getDay()]}, {diaSelecionado.getDate()} de {MESES[diaSelecionado.getMonth()]}
               </Text>
             </View>
-          )}
-          {horaSelecionada && (
             <View style={styles.resumoRow}>
-              <Ionicons name="time-outline" size={16} color="#4A6CF7" />
+              <Ionicons name="time-outline" size={14} color="#3A7DFF" />
               <Text style={styles.resumoText}>{horaSelecionada}</Text>
             </View>
-          )}
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[
-          styles.confirmButton,
-          (!diaSelecionado || !horaSelecionada || loading) && styles.confirmButtonDisabled,
-        ]}
-        onPress={handleConfirmar}
-        disabled={!diaSelecionado || !horaSelecionada || loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="calendar-outline" size={20} color="#fff" />
-            <Text style={styles.buttonText}>Confirmar agendamento</Text>
-          </>
+          </View>
         )}
-      </TouchableOpacity>
-    </ScrollView>
+
+        <TouchableOpacity
+          style={[
+            styles.confirmButton,
+            (!diaSelecionado || !horaSelecionada || loading) && styles.buttonDisabled,
+          ]}
+          onPress={handleConfirmar}
+          disabled={!diaSelecionado || !horaSelecionada || loading}
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.confirmButtonText}>Confirmar agendamento</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#EEF2FF",
+    backgroundColor: "#F2F2F7",
   },
-  content: {
-    padding: 24,
-    paddingBottom: 48,
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  backButton: {
-    alignSelf: "flex-start",
-    padding: 4,
-    marginTop: 40,
-    marginBottom: 8,
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0D0D0D",
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#1E3A8A",
-    marginBottom: 20,
+
+  scroll: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    gap: 12,
   },
+
+  // Service card
   serviceCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#CBD5F5",
-    padding: 16,
-    marginBottom: 24,
+    padding: 14,
   },
-  serviceTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1E293B",
+  serviceIconBox: {
+    width: 38, height: 38, borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
   },
-  serviceEmail: {
-    fontSize: 13,
-    color: "#64748B",
-    marginTop: 2,
-  },
+  serviceTitle: { fontSize: 15, fontWeight: "600", color: "#0D0D0D" },
+  serviceEmail: { fontSize: 12, color: "#666666", marginTop: 2 },
+
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#1E3A8A",
-    marginBottom: 12,
+    color: "#0D0D0D",
+    marginBottom: -4,
   },
-  diasScroll: {
-    marginBottom: 24,
-  },
+
+  // Dias
   diasContent: {
-    gap: 10,
-    paddingRight: 8,
+    gap: 8,
+    paddingRight: 4,
   },
   diaBtn: {
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#CBD5F5",
-    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    minWidth: 62,
+    minWidth: 58,
     gap: 2,
   },
   diaBtnActive: {
-    backgroundColor: "#4A6CF7",
-    borderColor: "#4A6CF7",
+    backgroundColor: "#EEF2FF",
+    borderColor: "#3A7DFF",
   },
-  diaSemana: {
-    fontSize: 12,
-    color: "#64748B",
-    fontWeight: "600",
+  diaSemana: { fontSize: 11, color: "#666666", fontWeight: "600" },
+  diaNumero: { fontSize: 20, fontWeight: "700", color: "#0D0D0D" },
+  diaMes: { fontSize: 11, color: "#666666" },
+  diaTextActive: { color: "#3A7DFF" },
+
+  // Slots
+  slotHint: {
+    fontSize: 13,
+    color: "#8E8E93",
+    fontStyle: "italic",
   },
-  diaNumero: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1E293B",
+  emptySlots: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
   },
-  diaMes: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  diaTextActive: {
-    color: "#fff",
+  emptySlotsText: {
+    fontSize: 13,
+    color: "#8E8E93",
+    textAlign: "center",
+    lineHeight: 20,
   },
   horariosGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 24,
+    gap: 8,
   },
   horaBtn: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#CBD5F5",
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
   horaBtnActive: {
-    backgroundColor: "#4A6CF7",
-    borderColor: "#4A6CF7",
+    backgroundColor: "#EEF2FF",
+    borderColor: "#3A7DFF",
   },
-  horaText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#334155",
-  },
-  horaTextActive: {
-    color: "#fff",
-  },
+  horaText: { fontSize: 14, fontWeight: "600", color: "#444444" },
+  horaTextActive: { color: "#3A7DFF" },
+
+  // Resumo
   resumoCard: {
-    backgroundColor: "#E0E7FF",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#C7D2FE",
-    padding: 14,
-    gap: 8,
-    marginBottom: 20,
-  },
-  resumoRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    gap: 16,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    padding: 12,
   },
-  resumoText: {
-    color: "#1E3A8A",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  resumoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  resumoText: { fontSize: 13, fontWeight: "600", color: "#3A7DFF" },
+
+  // Buttons
   confirmButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#4A6CF7",
-    padding: 18,
-    borderRadius: 30,
+    backgroundColor: "#3A7DFF",
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 4,
   },
-  confirmButtonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  successContainer: {
+  buttonDisabled: { opacity: 0.4 },
+  confirmButtonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
+
+  // Sucesso
+  successScreen: {
     flex: 1,
-    backgroundColor: "#EEF2FF",
-    padding: 32,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  successIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "#3A7DFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
   successTitle: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#1E3A8A",
-    marginTop: 20,
-    marginBottom: 12,
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0D0D0D",
+    textAlign: "center",
   },
   successText: {
-    color: "#475569",
     fontSize: 15,
+    color: "#666666",
     textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 20,
+    lineHeight: 22,
   },
-  successDetail: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#CBD5F5",
-    padding: 16,
+  successCard: {
     width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
     gap: 12,
-    marginBottom: 28,
   },
   successRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  successDetailText: {
-    color: "#334155",
+  successRowText: {
     fontSize: 14,
     fontWeight: "500",
+    color: "#0D0D0D",
+    flex: 1,
   },
   homeButton: {
-    backgroundColor: "#4A6CF7",
-    padding: 16,
-    borderRadius: 30,
     width: "100%",
+    backgroundColor: "#3A7DFF",
+    paddingVertical: 16,
+    borderRadius: 14,
     alignItems: "center",
+    marginTop: 8,
+  },
+  homeButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });

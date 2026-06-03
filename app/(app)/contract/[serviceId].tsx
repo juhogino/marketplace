@@ -7,26 +7,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "@/src/context/AuthContext";
 import { saveContract } from "@/src/storage/contractStorage";
+import { getAvailableSlots } from "@/src/storage/availabilityStorage";
 
 type MetodoPagamento = "pix" | "cartao";
 
-const HORARIOS = [
-  "08:00", "09:00", "10:00", "11:00",
-  "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
-];
 const DIAS_SEMANA_CURTO = ["D", "S", "T", "Q", "Q", "S", "S"];
 const MESES_NOMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-const MESES_CURTO = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
 ];
 
 function formatarDataISO(date: Date) {
@@ -41,7 +35,7 @@ function primeiroDiaDaSemana(ano: number, mes: number) {
   return new Date(ano, mes, 1).getDay();
 }
 
-// ─── Calendário inline ────────────────────────────────────────────────────────
+// ─── Calendário inline ─────────────────────────────────────────────────────────
 
 function Calendario({
   selecionado,
@@ -73,59 +67,41 @@ function Calendario({
 
   return (
     <View style={cal.container}>
-      {/* cabeçalho do mês */}
       <View style={cal.header}>
-        <TouchableOpacity onPress={() => navegar(-1)} style={cal.navBtn}>
-          <Ionicons name="chevron-back" size={20} color="#1E3A8A" />
+        <TouchableOpacity onPress={() => navegar(-1)} style={cal.navBtn} hitSlop={8}>
+          <Ionicons name="chevron-back" size={20} color="#0D0D0D" />
         </TouchableOpacity>
-        <Text style={cal.mesAno}>
-          {MESES_NOMES[mes]} {ano}
-        </Text>
-        <TouchableOpacity onPress={() => navegar(1)} style={cal.navBtn}>
-          <Ionicons name="chevron-forward" size={20} color="#1E3A8A" />
+        <Text style={cal.mesAno}>{MESES_NOMES[mes]} {ano}</Text>
+        <TouchableOpacity onPress={() => navegar(1)} style={cal.navBtn} hitSlop={8}>
+          <Ionicons name="chevron-forward" size={20} color="#0D0D0D" />
         </TouchableOpacity>
       </View>
 
-      {/* dias da semana */}
       <View style={cal.semanaRow}>
         {DIAS_SEMANA_CURTO.map((d, i) => (
           <Text key={i} style={cal.semanaLabel}>{d}</Text>
         ))}
       </View>
 
-      {/* grid de dias */}
       <View style={cal.grid}>
         {cells.map((dia, i) => {
           if (!dia) return <View key={i} style={cal.cell} />;
-
           const data = new Date(ano, mes, dia);
           const passado = data < hoje;
           const isSelecionado =
             selecionado && formatarDataISO(data) === formatarDataISO(selecionado);
-
           return (
             <TouchableOpacity
               key={i}
-              style={[
-                cal.cell,
-                isSelecionado && cal.cellSelected,
-                passado && cal.cellDisabled,
-              ]}
-              onPress={() => {
-                if (!passado) {
-                  onSelecionar(data);
-                  onFechar();
-                }
-              }}
+              style={[cal.cell, isSelecionado && cal.cellSelected, passado && cal.cellDisabled]}
+              onPress={() => { if (!passado) { onSelecionar(data); onFechar(); } }}
               disabled={passado}
             >
-              <Text
-                style={[
-                  cal.cellText,
-                  isSelecionado && cal.cellTextSelected,
-                  passado && cal.cellTextDisabled,
-                ]}
-              >
+              <Text style={[
+                cal.cellText,
+                isSelecionado && cal.cellTextSelected,
+                passado && cal.cellTextDisabled,
+              ]}>
                 {dia}
               </Text>
             </TouchableOpacity>
@@ -136,7 +112,7 @@ function Calendario({
   );
 }
 
-// ─── Tela principal ───────────────────────────────────────────────────────────
+// ─── Tela principal ────────────────────────────────────────────────────────────
 
 export default function Contract() {
   const router = useRouter();
@@ -148,23 +124,36 @@ export default function Contract() {
     preco: string;
   }>();
 
-  // Stepper
   const [step, setStep] = useState<1 | 2>(1);
 
-  // Step 1 – Agendamento
+  // Step 1
   const [calendarAberto, setCalendarAberto] = useState(false);
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [horaSelecionada, setHoraSelecionada] = useState<string | null>(null);
+  const [slotsDisponiveis, setSlotsDisponiveis] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
-  // Step 2 – Pagamento
+  // Step 2
   const [metodo, setMetodo] = useState<MetodoPagamento>("pix");
   const [numeroCartao, setNumeroCartao] = useState("");
   const [validade, setValidade] = useState("");
   const [cvv, setCvv] = useState("");
   const [nomeCartao, setNomeCartao] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [concluido, setConcluido] = useState(false);
+
+  useEffect(() => {
+    if (!dataSelecionada) {
+      setSlotsDisponiveis([]);
+      setHoraSelecionada(null);
+      return;
+    }
+    setHoraSelecionada(null);
+    setLoadingSlots(true);
+    getAvailableSlots(prestadorEmail, formatarDataISO(dataSelecionada))
+      .then((slots) => setSlotsDisponiveis(slots))
+      .finally(() => setLoadingSlots(false));
+  }, [dataSelecionada]);
 
   function formatarCartao(value: string) {
     const digits = value.replace(/\D/g, "").slice(0, 16);
@@ -189,7 +178,6 @@ export default function Contract() {
         return;
       }
     }
-
     setLoading(true);
     try {
       await saveContract({
@@ -210,49 +198,67 @@ export default function Contract() {
     }
   }
 
-  // ── Tela de sucesso ──
+  // ── Sucesso ──
   if (concluido) {
     return (
-      <View style={styles.successContainer}>
-        <Ionicons name="checkmark-circle" size={90} color="#22C55E" />
-        <Text style={styles.successTitle}>Contratação confirmada!</Text>
-        <Text style={styles.successText}>
-          Seu serviço de <Text style={{ fontWeight: "bold" }}>{titulo}</Text> foi agendado e o pagamento registrado com sucesso.
-        </Text>
-        <View style={styles.successDetail}>
-          {dataSelecionada && (
+      <SafeAreaView style={styles.screen} edges={["top", "left", "right", "bottom"]}>
+        <View style={styles.successScreen}>
+          <View style={styles.successIcon}>
+            <Ionicons name="checkmark" size={48} color="#FFFFFF" />
+          </View>
+          <Text style={styles.successTitle}>Contratação confirmada!</Text>
+          <Text style={styles.successText}>
+            Seu serviço de <Text style={{ fontWeight: "700" }}>{titulo}</Text> foi agendado com sucesso.
+          </Text>
+
+          <View style={styles.successCard}>
+            {dataSelecionada && (
+              <View style={styles.successRow}>
+                <Ionicons name="calendar-outline" size={16} color="#3A7DFF" />
+                <Text style={styles.successRowText}>
+                  {dataFormatadaBR(dataSelecionada)}{horaSelecionada ? ` às ${horaSelecionada}` : ""}
+                </Text>
+              </View>
+            )}
             <View style={styles.successRow}>
-              <Ionicons name="calendar-outline" size={16} color="#4A6CF7" />
-              <Text style={styles.successDetailText}>
-                {dataFormatadaBR(dataSelecionada)}{horaSelecionada ? ` às ${horaSelecionada}` : ""}
+              <Ionicons name="cash-outline" size={16} color="#3A7DFF" />
+              <Text style={styles.successRowText}>R$ {preco}</Text>
+            </View>
+            <View style={styles.successRow}>
+              <Ionicons
+                name={metodo === "pix" ? "qr-code-outline" : "card-outline"}
+                size={16}
+                color="#3A7DFF"
+              />
+              <Text style={styles.successRowText}>
+                {metodo === "pix" ? "PIX" : "Cartão de crédito"}
               </Text>
             </View>
-          )}
-          <View style={styles.successRow}>
-            <Ionicons name="cash-outline" size={16} color="#4A6CF7" />
-            <Text style={styles.successDetailText}>R$ {preco}</Text>
           </View>
-          <View style={styles.successRow}>
-            <Ionicons name={metodo === "pix" ? "qr-code-outline" : "card-outline"} size={16} color="#4A6CF7" />
-            <Text style={styles.successDetailText}>
-              {metodo === "pix" ? "PIX" : "Cartão de crédito"}
-            </Text>
-          </View>
+
+          <TouchableOpacity
+            style={styles.homeButton}
+            onPress={() => router.replace("/(app)/home")}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.homeButtonText}>Voltar ao início</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.homeButton} onPress={() => router.replace("/(app)/home")}>
-          <Text style={styles.buttonText}>Voltar para o início</Text>
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // ── Step 1: Agendamento ──
   if (step === 1) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color="#1E3A8A" />
-        </TouchableOpacity>
+      <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="chevron-back" size={24} color="#0D0D0D" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Agendar</Text>
+          <View style={{ width: 24 }} />
+        </View>
 
         {/* Stepper */}
         <View style={styles.stepper}>
@@ -263,255 +269,280 @@ export default function Contract() {
           <View style={styles.stepInactive}>
             <Text style={styles.stepNumInactive}>2</Text>
           </View>
-        </View>
-        <Text style={styles.stepLabel}>Agendamento</Text>
-
-        {/* Serviço */}
-        <View style={styles.serviceCard}>
-          <Ionicons name="construct-outline" size={18} color="#4A6CF7" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.serviceTitle}>{titulo}</Text>
-            <Text style={styles.serviceEmail}>{prestadorEmail}</Text>
-          </View>
+          <Text style={styles.stepInactiveLabel}>Pagamento</Text>
         </View>
 
-        {/* Botão de abrir calendário */}
-        <Text style={styles.sectionTitle}>Data do serviço</Text>
-        <TouchableOpacity
-          style={styles.calendarButton}
-          onPress={() => setCalendarAberto(!calendarAberto)}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="calendar-outline" size={20} color="#4A6CF7" />
-          <Text style={styles.calendarButtonText}>
-            {dataSelecionada ? dataFormatadaBR(dataSelecionada) : "Escolher data"}
-          </Text>
-          <Ionicons
-            name={calendarAberto ? "chevron-up" : "chevron-down"}
-            size={18}
-            color="#64748B"
-          />
-        </TouchableOpacity>
+          {/* Info do serviço */}
+          <View style={styles.serviceCard}>
+            <View style={styles.serviceIconBox}>
+              <Ionicons name="construct-outline" size={18} color="#3A7DFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.serviceTitle} numberOfLines={1}>{titulo}</Text>
+              <Text style={styles.serviceEmail} numberOfLines={1}>{prestadorEmail}</Text>
+            </View>
+            <Text style={styles.servicePrice}>R$ {preco}</Text>
+          </View>
 
-        {calendarAberto && (
-          <Calendario
-            selecionado={dataSelecionada}
-            onSelecionar={setDataSelecionada}
-            onFechar={() => setCalendarAberto(false)}
-          />
-        )}
+          {/* Data */}
+          <Text style={styles.sectionTitle}>Data do serviço</Text>
+          <TouchableOpacity
+            style={styles.calendarButton}
+            onPress={() => setCalendarAberto(!calendarAberto)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#3A7DFF" />
+            <Text style={[styles.calendarButtonText, !dataSelecionada && { color: "#8E8E93" }]}>
+              {dataSelecionada ? dataFormatadaBR(dataSelecionada) : "Escolher data"}
+            </Text>
+            <Ionicons
+              name={calendarAberto ? "chevron-up" : "chevron-down"}
+              size={16}
+              color="#8E8E93"
+            />
+          </TouchableOpacity>
 
-        {/* Horários */}
-        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Horário</Text>
-        <View style={styles.horariosGrid}>
-          {HORARIOS.map((hora) => {
-            const ativo = hora === horaSelecionada;
-            return (
-              <TouchableOpacity
-                key={hora}
-                style={[styles.horaBtn, ativo && styles.horaBtnActive]}
-                onPress={() => setHoraSelecionada(hora)}
-              >
-                <Text style={[styles.horaText, ativo && styles.horaTextActive]}>{hora}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+          {calendarAberto && (
+            <Calendario
+              selecionado={dataSelecionada}
+              onSelecionar={setDataSelecionada}
+              onFechar={() => setCalendarAberto(false)}
+            />
+          )}
 
-        {/* Resumo seleção */}
-        {(dataSelecionada || horaSelecionada) && (
-          <View style={styles.resumoCard}>
-            {dataSelecionada && (
+          {/* Horários */}
+          <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Horário</Text>
+          {!dataSelecionada ? (
+            <Text style={styles.slotHint}>Selecione uma data para ver os horários disponíveis.</Text>
+          ) : loadingSlots ? (
+            <ActivityIndicator color="#3A7DFF" style={{ marginVertical: 12 }} />
+          ) : slotsDisponiveis.length === 0 ? (
+            <View style={styles.emptySlots}>
+              <Ionicons name="time-outline" size={28} color="#C7C7CC" />
+              <Text style={styles.emptySlotsText}>
+                Nenhum horário disponível para esta data.{"\n"}Tente outro dia.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.horariosGrid}>
+              {slotsDisponiveis.map((hora) => {
+                const ativo = hora === horaSelecionada;
+                return (
+                  <TouchableOpacity
+                    key={hora}
+                    style={[styles.horaBtn, ativo && styles.horaBtnActive]}
+                    onPress={() => setHoraSelecionada(hora)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.horaText, ativo && styles.horaTextActive]}>{hora}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Resumo */}
+          {dataSelecionada && horaSelecionada && (
+            <View style={styles.resumoCard}>
               <View style={styles.resumoRow}>
-                <Ionicons name="calendar-outline" size={15} color="#4A6CF7" />
+                <Ionicons name="calendar-outline" size={14} color="#3A7DFF" />
                 <Text style={styles.resumoText}>{dataFormatadaBR(dataSelecionada)}</Text>
               </View>
-            )}
-            {horaSelecionada && (
               <View style={styles.resumoRow}>
-                <Ionicons name="time-outline" size={15} color="#4A6CF7" />
+                <Ionicons name="time-outline" size={14} color="#3A7DFF" />
                 <Text style={styles.resumoText}>{horaSelecionada}</Text>
               </View>
-            )}
-          </View>
-        )}
+            </View>
+          )}
 
-        <TouchableOpacity
-          style={[
-            styles.nextButton,
-            (!dataSelecionada || !horaSelecionada) && styles.buttonDisabled,
-          ]}
-          onPress={() => setStep(2)}
-          disabled={!dataSelecionada || !horaSelecionada}
-        >
-          <Text style={styles.buttonText}>Próximo · Pagamento</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity
+            style={[styles.nextButton, (!dataSelecionada || !horaSelecionada) && styles.buttonDisabled]}
+            onPress={() => setStep(2)}
+            disabled={!dataSelecionada || !horaSelecionada}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.nextButtonText}>Próximo — Pagamento</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   // ── Step 2: Pagamento ──
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity style={styles.backButton} onPress={() => setStep(1)}>
-        <Ionicons name="chevron-back" size={24} color="#1E3A8A" />
-      </TouchableOpacity>
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => setStep(1)} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color="#0D0D0D" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Pagamento</Text>
+        <View style={{ width: 24 }} />
+      </View>
 
       {/* Stepper */}
       <View style={styles.stepper}>
         <View style={styles.stepDone}>
-          <Ionicons name="checkmark" size={14} color="#fff" />
+          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
         </View>
         <View style={[styles.stepLine, styles.stepLineDone]} />
         <View style={styles.stepActive}>
           <Text style={styles.stepNumActive}>2</Text>
         </View>
+        <Text style={styles.stepActiveLabel}>Pagamento</Text>
       </View>
-      <Text style={styles.stepLabel}>Pagamento</Text>
 
-      {/* Resumo */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Resumo</Text>
-        <View style={styles.row}>
-          <Ionicons name="construct-outline" size={16} color="#64748B" />
-          <Text style={styles.label}>Serviço</Text>
-          <Text style={styles.value}>{titulo}</Text>
-        </View>
-        {dataSelecionada && (
-          <View style={styles.row}>
-            <Ionicons name="calendar-outline" size={16} color="#64748B" />
-            <Text style={styles.label}>Data</Text>
-            <Text style={styles.value}>
-              {dataFormatadaBR(dataSelecionada)} às {horaSelecionada}
-            </Text>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Resumo */}
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Resumo do pedido</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryKey}>Serviço</Text>
+            <Text style={styles.summaryValue} numberOfLines={1}>{titulo}</Text>
           </View>
-        )}
-        <View style={styles.row}>
-          <Ionicons name="cash-outline" size={16} color="#64748B" />
-          <Text style={styles.label}>Valor</Text>
-          <Text style={[styles.value, styles.preco]}>R$ {preco}</Text>
+          {dataSelecionada && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryKey}>Data</Text>
+              <Text style={styles.summaryValue}>
+                {dataFormatadaBR(dataSelecionada)} às {horaSelecionada}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.summaryRow, { marginTop: 4 }]}>
+            <Text style={styles.summaryKey}>Total</Text>
+            <Text style={styles.summaryTotal}>R$ {preco}</Text>
+          </View>
         </View>
-      </View>
 
-      {/* Método */}
-      <Text style={styles.sectionTitle}>Forma de pagamento</Text>
-      <View style={styles.metodosRow}>
-        <TouchableOpacity
-          style={[styles.metodoBtn, metodo === "pix" && styles.metodoBtnActive]}
-          onPress={() => setMetodo("pix")}
-        >
-          <Ionicons name="qr-code-outline" size={22} color={metodo === "pix" ? "#4A6CF7" : "#64748B"} />
-          <Text style={[styles.metodoText, metodo === "pix" && styles.metodoTextActive]}>PIX</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.metodoBtn, metodo === "cartao" && styles.metodoBtnActive]}
-          onPress={() => setMetodo("cartao")}
-        >
-          <Ionicons name="card-outline" size={22} color={metodo === "cartao" ? "#4A6CF7" : "#64748B"} />
-          <Text style={[styles.metodoText, metodo === "cartao" && styles.metodoTextActive]}>Cartão</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Método */}
+        <Text style={styles.sectionTitle}>Forma de pagamento</Text>
+        <View style={styles.metodosRow}>
+          {(["pix", "cartao"] as MetodoPagamento[]).map((m) => {
+            const isActive = metodo === m;
+            return (
+              <TouchableOpacity
+                key={m}
+                style={[styles.metodoBtn, isActive && styles.metodoBtnActive]}
+                onPress={() => setMetodo(m)}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={m === "pix" ? "qr-code-outline" : "card-outline"}
+                  size={20}
+                  color={isActive ? "#3A7DFF" : "#666666"}
+                />
+                <Text style={[styles.metodoText, isActive && styles.metodoTextActive]}>
+                  {m === "pix" ? "PIX" : "Cartão"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      {/* PIX */}
-      {metodo === "pix" && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Chave PIX</Text>
-          <View style={styles.pixBox}>
-            <Ionicons name="qr-code-outline" size={48} color="#4A6CF7" />
+        {/* PIX */}
+        {metodo === "pix" && (
+          <View style={styles.pixCard}>
+            <Ionicons name="qr-code-outline" size={52} color="#3A7DFF" />
             <Text style={styles.pixChave}>marketplace@pagamento.com</Text>
             <Text style={styles.pixInfo}>
               Após confirmar, você terá 30 minutos para realizar o pagamento.
             </Text>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Cartão */}
-      {metodo === "cartao" && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Dados do cartão</Text>
+        {/* Cartão */}
+        {metodo === "cartao" && (
+          <View style={styles.cartaoCard}>
+            <Text style={styles.inputLabel}>Número do cartão</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0000 0000 0000 0000"
+              placeholderTextColor="#8E8E93"
+              keyboardType="numeric"
+              value={numeroCartao}
+              onChangeText={(v) => setNumeroCartao(formatarCartao(v))}
+              maxLength={19}
+            />
 
-          <Text style={styles.inputLabel}>Número do cartão</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="0000 0000 0000 0000"
-            placeholderTextColor="#94A3B8"
-            keyboardType="numeric"
-            value={numeroCartao}
-            onChangeText={(v) => setNumeroCartao(formatarCartao(v))}
-            maxLength={19}
-          />
+            <Text style={styles.inputLabel}>Nome no cartão</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="NOME SOBRENOME"
+              placeholderTextColor="#8E8E93"
+              autoCapitalize="characters"
+              value={nomeCartao}
+              onChangeText={setNomeCartao}
+            />
 
-          <Text style={styles.inputLabel}>Nome no cartão</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="NOME SOBRENOME"
-            placeholderTextColor="#94A3B8"
-            autoCapitalize="characters"
-            value={nomeCartao}
-            onChangeText={setNomeCartao}
-          />
-
-          <View style={styles.rowInputs}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>Validade</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="MM/AA"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-                value={validade}
-                onChangeText={(v) => setValidade(formatarValidade(v))}
-                maxLength={5}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>CVV</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="123"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-                secureTextEntry
-                value={cvv}
-                onChangeText={(v) => setCvv(v.replace(/\D/g, "").slice(0, 3))}
-                maxLength={3}
-              />
+            <View style={styles.rowInputs}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Validade</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="MM/AA"
+                  placeholderTextColor="#8E8E93"
+                  keyboardType="numeric"
+                  value={validade}
+                  onChangeText={(v) => setValidade(formatarValidade(v))}
+                  maxLength={5}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>CVV</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="123"
+                  placeholderTextColor="#8E8E93"
+                  keyboardType="numeric"
+                  secureTextEntry
+                  value={cvv}
+                  onChangeText={(v) => setCvv(v.replace(/\D/g, "").slice(0, 3))}
+                  maxLength={3}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[styles.confirmButton, loading && styles.buttonDisabled]}
-        onPress={handleConfirmar}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="lock-closed-outline" size={20} color="#fff" />
-            <Text style={styles.buttonText}>Confirmar pagamento · R$ {preco}</Text>
-          </>
         )}
-      </TouchableOpacity>
 
-      <Text style={styles.disclaimer}>
-        Simulação para fins educacionais. Nenhum valor real será cobrado.
-      </Text>
-    </ScrollView>
+        <TouchableOpacity
+          style={[styles.confirmButton, loading && styles.buttonDisabled]}
+          onPress={handleConfirmar}
+          disabled={loading}
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="lock-closed-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.confirmButtonText}>Confirmar · R$ {preco}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.disclaimer}>
+          Simulação para fins educacionais. Nenhum valor real será cobrado.
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// ─── Estilos do calendário ────────────────────────────────────────────────────
+// ─── Estilos do calendário ──────────────────────────────────────────────────────
 
 const cal = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#CBD5F5",
     padding: 16,
     marginBottom: 4,
   },
@@ -521,24 +552,22 @@ const cal = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
   },
-  navBtn: {
-    padding: 6,
-  },
+  navBtn: { padding: 4 },
   mesAno: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#1E3A8A",
+    color: "#0D0D0D",
   },
   semanaRow: {
     flexDirection: "row",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   semanaLabel: {
     flex: 1,
     textAlign: "center",
     fontSize: 12,
     fontWeight: "600",
-    color: "#94A3B8",
+    color: "#8E8E93",
   },
   grid: {
     flexDirection: "row",
@@ -551,159 +580,323 @@ const cal = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 100,
   },
-  cellSelected: {
-    backgroundColor: "#4A6CF7",
-  },
-  cellDisabled: {
-    opacity: 0.3,
-  },
-  cellText: {
-    fontSize: 14,
-    color: "#1E293B",
-    fontWeight: "500",
-  },
-  cellTextSelected: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-  cellTextDisabled: {
-    color: "#94A3B8",
-  },
+  cellSelected: { backgroundColor: "#3A7DFF" },
+  cellDisabled: { opacity: 0.3 },
+  cellText: { fontSize: 14, color: "#0D0D0D", fontWeight: "500" },
+  cellTextSelected: { color: "#FFFFFF", fontWeight: "700" },
+  cellTextDisabled: { color: "#8E8E93" },
 });
 
-// ─── Estilos gerais ───────────────────────────────────────────────────────────
+// ─── Estilos gerais ─────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#EEF2FF" },
-  content: { padding: 24, paddingBottom: 48 },
-  backButton: {
-    alignSelf: "flex-start",
-    padding: 4,
-    marginTop: 40,
-    marginBottom: 12,
+  screen: {
+    flex: 1,
+    backgroundColor: "#F2F2F7",
+  },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0D0D0D",
   },
 
   // Stepper
-  stepper: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 6,
+  },
   stepActive: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: "#4A6CF7", alignItems: "center", justifyContent: "center",
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: "#3A7DFF",
+    alignItems: "center", justifyContent: "center",
   },
   stepInactive: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: "#CBD5F5", alignItems: "center", justifyContent: "center",
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: "#E5E5EA",
+    alignItems: "center", justifyContent: "center",
   },
   stepDone: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: "#22C55E", alignItems: "center", justifyContent: "center",
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: "#4CAF50",
+    alignItems: "center", justifyContent: "center",
   },
-  stepLine: { flex: 1, height: 2, backgroundColor: "#CBD5F5", marginHorizontal: 6 },
-  stepLineDone: { backgroundColor: "#22C55E" },
-  stepNumActive: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  stepNumInactive: { color: "#64748B", fontWeight: "700", fontSize: 13 },
-  stepLabel: { fontSize: 22, fontWeight: "bold", color: "#1E3A8A", marginBottom: 20 },
+  stepLine: { flex: 1, height: 2, backgroundColor: "#E5E5EA" },
+  stepLineDone: { backgroundColor: "#4CAF50" },
+  stepNumActive: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
+  stepNumInactive: { color: "#8E8E93", fontWeight: "700", fontSize: 12 },
+  stepInactiveLabel: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
+  stepActiveLabel: { fontSize: 13, color: "#3A7DFF", fontWeight: "600" },
 
-  // Serviço
+  scroll: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    gap: 12,
+  },
+
+  // Service card
   serviceCard: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1,
-    borderColor: "#CBD5F5", padding: 16, marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 14,
   },
-  serviceTitle: { fontSize: 15, fontWeight: "700", color: "#1E293B" },
-  serviceEmail: { fontSize: 13, color: "#64748B", marginTop: 2 },
+  serviceIconBox: {
+    width: 38, height: 38, borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
+  },
+  serviceTitle: { fontSize: 15, fontWeight: "600", color: "#0D0D0D" },
+  serviceEmail: { fontSize: 12, color: "#666666", marginTop: 2 },
+  servicePrice: { fontSize: 16, fontWeight: "700", color: "#3A7DFF", flexShrink: 0 },
 
-  sectionTitle: { fontSize: 15, fontWeight: "600", color: "#1E3A8A", marginBottom: 10 },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0D0D0D",
+    marginBottom: -4,
+  },
 
-  // Calendário
+  // Calendar button
   calendarButton: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: "#fff", borderRadius: 14, borderWidth: 1,
-    borderColor: "#CBD5F5", padding: 14, marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
   },
-  calendarButtonText: { flex: 1, fontSize: 15, color: "#1E293B", fontWeight: "500" },
+  calendarButtonText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#0D0D0D",
+    fontWeight: "500",
+  },
 
-  // Horários
-  horariosGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 },
-  horaBtn: {
-    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1,
-    borderColor: "#CBD5F5", paddingVertical: 10, paddingHorizontal: 16,
+  // Slots
+  slotHint: {
+    fontSize: 13,
+    color: "#8E8E93",
+    fontStyle: "italic",
   },
-  horaBtnActive: { backgroundColor: "#4A6CF7", borderColor: "#4A6CF7" },
-  horaText: { fontSize: 14, fontWeight: "600", color: "#334155" },
-  horaTextActive: { color: "#fff" },
+  emptySlots: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  emptySlotsText: {
+    fontSize: 13,
+    color: "#8E8E93",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  horariosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  horaBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  horaBtnActive: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#3A7DFF",
+  },
+  horaText: { fontSize: 14, fontWeight: "600", color: "#444444" },
+  horaTextActive: { color: "#3A7DFF" },
 
   // Resumo
   resumoCard: {
-    backgroundColor: "#E0E7FF", borderRadius: 12, borderWidth: 1,
-    borderColor: "#C7D2FE", padding: 12, gap: 6, marginBottom: 16,
+    flexDirection: "row",
+    gap: 16,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    padding: 12,
   },
-  resumoRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  resumoText: { color: "#1E3A8A", fontSize: 13, fontWeight: "600" },
+  resumoRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  resumoText: { fontSize: 13, fontWeight: "600", color: "#3A7DFF" },
 
-  // Botões step 1
+  // Buttons step 1
   nextButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, backgroundColor: "#4A6CF7", padding: 18, borderRadius: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#3A7DFF",
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 4,
   },
+  nextButtonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
+  buttonDisabled: { opacity: 0.4 },
 
-  // Pagamento
-  card: {
-    backgroundColor: "#fff", borderRadius: 20, borderWidth: 1,
-    borderColor: "#CBD5F5", padding: 20, marginBottom: 20, gap: 12,
+  // Step 2 — Summary
+  summaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
   },
-  cardTitle: {
-    fontSize: 13, fontWeight: "700", color: "#64748B",
-    textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#8E8E93",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowInputs: { flexDirection: "row", gap: 12 },
-  label: { color: "#64748B", fontSize: 14, flex: 1 },
-  value: { color: "#1E293B", fontSize: 14, fontWeight: "600", flexShrink: 1, textAlign: "right" },
-  preco: { color: "#4A6CF7", fontSize: 16 },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  summaryKey: { fontSize: 14, color: "#666666" },
+  summaryValue: { fontSize: 14, fontWeight: "500", color: "#0D0D0D", flexShrink: 1, marginLeft: 12, textAlign: "right" },
+  summaryTotal: { fontSize: 18, fontWeight: "700", color: "#3A7DFF" },
 
-  metodosRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  // Métodos
+  metodosRow: { flexDirection: "row", gap: 10 },
   metodoBtn: {
-    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1,
-    borderColor: "#CBD5F5", padding: 14,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    paddingVertical: 14,
   },
-  metodoBtnActive: { borderColor: "#4A6CF7", backgroundColor: "#E0E7FF" },
-  metodoText: { color: "#64748B", fontWeight: "600", fontSize: 15 },
-  metodoTextActive: { color: "#4A6CF7" },
+  metodoBtnActive: { borderColor: "#3A7DFF", backgroundColor: "#EEF2FF" },
+  metodoText: { color: "#666666", fontWeight: "600", fontSize: 15 },
+  metodoTextActive: { color: "#3A7DFF" },
 
-  pixBox: { alignItems: "center", gap: 12, paddingVertical: 8 },
-  pixChave: { fontSize: 16, fontWeight: "700", color: "#1E3A8A" },
-  pixInfo: { color: "#64748B", fontSize: 13, textAlign: "center", lineHeight: 20 },
+  // PIX
+  pixCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    gap: 10,
+  },
+  pixChave: { fontSize: 15, fontWeight: "700", color: "#0D0D0D" },
+  pixInfo: { fontSize: 13, color: "#666666", textAlign: "center", lineHeight: 20 },
 
-  inputLabel: { fontSize: 13, fontWeight: "600", color: "#64748B", marginBottom: 6 },
+  // Cartão
+  cartaoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    gap: 4,
+  },
+  inputLabel: { fontSize: 13, fontWeight: "600", color: "#666666", marginTop: 8, marginBottom: 4 },
   input: {
-    backgroundColor: "#F8FAFF", borderWidth: 1, borderColor: "#CBD5F5",
-    borderRadius: 12, padding: 13, fontSize: 15, color: "#1E293B", marginBottom: 14,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#0D0D0D",
   },
+  rowInputs: { flexDirection: "row", gap: 10 },
 
+  // Confirm
   confirmButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, backgroundColor: "#4A6CF7", padding: 18, borderRadius: 30, marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#3A7DFF",
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 4,
   },
-  buttonDisabled: { opacity: 0.45 },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  disclaimer: { color: "#94A3B8", fontSize: 12, textAlign: "center" },
+  confirmButtonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
+  disclaimer: {
+    fontSize: 12,
+    color: "#8E8E93",
+    textAlign: "center",
+  },
 
   // Sucesso
-  successContainer: {
-    flex: 1, backgroundColor: "#EEF2FF", padding: 32,
-    alignItems: "center", justifyContent: "center",
+  successScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    gap: 16,
   },
-  successTitle: { fontSize: 26, fontWeight: "bold", color: "#1E3A8A", marginTop: 20, marginBottom: 12 },
-  successText: { color: "#475569", fontSize: 15, textAlign: "center", lineHeight: 24, marginBottom: 20 },
-  successDetail: {
-    backgroundColor: "#fff", borderRadius: 16, borderWidth: 1,
-    borderColor: "#CBD5F5", padding: 16, width: "100%", gap: 12, marginBottom: 28,
+  successIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#4CAF50",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
-  successRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  successDetailText: { color: "#334155", fontSize: 14, fontWeight: "500" },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0D0D0D",
+    textAlign: "center",
+  },
+  successText: {
+    fontSize: 15,
+    color: "#666666",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  successCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  successRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  successRowText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#0D0D0D",
+  },
   homeButton: {
-    backgroundColor: "#4A6CF7", padding: 16, borderRadius: 30,
-    width: "100%", alignItems: "center",
+    width: "100%",
+    backgroundColor: "#3A7DFF",
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  homeButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });

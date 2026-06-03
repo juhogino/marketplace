@@ -7,11 +7,16 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { getServices } from "@/src/storage/serviceStorage";
 import { Service } from "@/src/types/Service";
+
+function getInitial(text: string) {
+  return (text ?? "").trim().charAt(0).toUpperCase() || "?";
+}
 
 export default function Services() {
   const router = useRouter();
@@ -47,160 +52,236 @@ export default function Services() {
   });
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={24} color="#1E3A8A" />
-      </TouchableOpacity>
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color="#0D0D0D" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {categoriaParam ?? "Serviços"}
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
 
-      <Text style={styles.title}>
-        {categoriaParam ? categoriaParam : "Serviços Disponíveis"}
-      </Text>
-
+      {/* Search */}
       <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={16} color="#94A3B8" />
+        <Ionicons name="search-outline" size={18} color="#666666" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar serviços..."
-          placeholderTextColor="#94A3B8"
+          placeholder="Buscar serviços"
+          placeholderTextColor="#999999"
           value={busca}
           onChangeText={setBusca}
           returnKeyType="search"
         />
         {busca.length > 0 && (
-          <TouchableOpacity onPress={() => setBusca("")}>
-            <Ionicons name="close-circle" size={16} color="#94A3B8" />
+          <TouchableOpacity onPress={() => setBusca("")} hitSlop={8}>
+            <Ionicons name="close-circle" size={18} color="#C7C7CC" />
           </TouchableOpacity>
         )}
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#4A6CF7" style={{ marginTop: 40 }} />
+        <View style={styles.center}>
+          <ActivityIndicator color="#3A7DFF" size="large" />
+        </View>
       ) : (
-      <FlatList
-        data={servicosFiltrados}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() =>
-              router.push({
-                pathname: "/(app)/service/[id]",
-                params: {
-                  id: item.id,
-                  titulo: item.titulo,
-                  descricao: item.descricao,
-                  categoria: item.categoria,
-                  preco: item.preco,
-                  telefone: item.telefone,
-                  regiao: item.regiao,
-                  prestadorEmail: item.prestadorEmail,
-                },
-              })
-            }
-          >
-            <Text style={styles.name}>{item.titulo}</Text>
-            <Text style={styles.description} numberOfLines={2}>{item.descricao}</Text>
+        <FlatList
+          data={servicosFiltrados}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() =>
+                router.push({
+                  pathname: "/(app)/service/[id]",
+                  params: {
+                    id: item.id,
+                    titulo: item.titulo,
+                    descricao: item.descricao,
+                    categoria: item.categoria,
+                    preco: item.preco,
+                    telefone: item.telefone,
+                    regiao: item.regiao,
+                    prestadorEmail: item.prestadorEmail,
+                  },
+                })
+              }
+              activeOpacity={0.75}
+            >
+              <View style={styles.cardTop}>
+                <View style={styles.cardAvatar}>
+                  <Text style={styles.cardAvatarText}>
+                    {getInitial(item.prestadorEmail)}
+                  </Text>
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{item.titulo}</Text>
+                  <Text style={styles.cardProvider} numberOfLines={1}>
+                    {item.prestadorEmail}
+                  </Text>
+                </View>
+                <Text style={styles.cardPrice}>R$ {item.preco}</Text>
+              </View>
 
-            <View style={styles.detailRow}>
-              <Ionicons name="folder-outline" size={15} color="#64748B" />
-              <Text style={styles.detail}>{item.categoria}</Text>
-            </View>
+              <Text style={styles.cardDescription} numberOfLines={2}>
+                {item.descricao}
+              </Text>
 
-            <View style={styles.detailRow}>
-              <Ionicons name="cash-outline" size={15} color="#64748B" />
-              <Text style={styles.detail}>R$ {item.preco}</Text>
+              <View style={styles.cardFooter}>
+                <View style={styles.tag}>
+                  <Ionicons name="folder-outline" size={12} color="#3A7DFF" />
+                  <Text style={styles.tagText}>{item.categoria}</Text>
+                </View>
+                <View style={styles.tag}>
+                  <Ionicons name="location-outline" size={12} color="#3A7DFF" />
+                  <Text style={styles.tagText}>{item.regiao}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Ionicons name="search-outline" size={44} color="#C7C7CC" />
+              <Text style={styles.emptyText}>Nenhum serviço encontrado</Text>
             </View>
-
-            <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={15} color="#64748B" />
-              <Text style={styles.detail}>{item.regiao}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="search-outline" size={40} color="#94A3B8" />
-            <Text style={styles.emptyText}>Nenhum serviço encontrado</Text>
-          </View>
-        }
-      />
+          }
+        />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#EEF2FF",
-    padding: 24,
+    backgroundColor: "#F2F2F7",
   },
-  backButton: {
-    alignSelf: "flex-start",
-    padding: 4,
-    marginTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1E3A8A",
-    textAlign: "center",
-    marginBottom: 20,
-    marginTop: 12,
-  },
-  card: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: "#CBD5F5",
-    gap: 8,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-    color: "#1E3A8A",
-  },
-  description: {
-    color: "#334155",
-    marginBottom: 4,
-  },
-  detailRow: {
+
+  // Header
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  detail: {
-    color: "#334155",
-    fontSize: 14,
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#0D0D0D",
   },
+
+  // Search
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#CBD5F5",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 16,
+    borderColor: "#E5E5EA",
+    borderRadius: 999,
+    height: 44,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: "#1E293B",
+    color: "#0D0D0D",
     paddingVertical: 0,
   },
-  empty: {
+
+  center: {
+    flex: 1,
     alignItems: "center",
-    marginTop: 60,
+    justifyContent: "center",
     gap: 12,
+    paddingBottom: 60,
   },
   emptyText: {
-    color: "#94A3B8",
+    fontSize: 15,
+    color: "#8E8E93",
+  },
+
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    gap: 10,
+    flexGrow: 1,
+  },
+
+  // Card
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 14,
+    gap: 10,
+  },
+  cardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  cardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  cardAvatarText: {
     fontSize: 16,
+    fontWeight: "700",
+    color: "#3A7DFF",
+  },
+  cardInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0D0D0D",
+  },
+  cardProvider: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  cardPrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3A7DFF",
+    flexShrink: 0,
+  },
+  cardDescription: {
+    fontSize: 13,
+    color: "#666666",
+    lineHeight: 18,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#3A7DFF",
   },
 });
