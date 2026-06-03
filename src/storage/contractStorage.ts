@@ -10,7 +10,7 @@ export interface Contract {
   metodoPagamento: "pix" | "cartao";
   data?: string;
   hora?: string;
-  status: "pendente" | "confirmado";
+  status: "pendente" | "confirmado" | "cancelado";
   criadoEm: string;
 }
 
@@ -53,5 +53,23 @@ export async function getContractsAsPrestador(prestadorEmail: string): Promise<C
     return data;
   } catch {
     return [];
+  }
+}
+
+export async function confirmContract(id: number): Promise<Contract> {
+  try {
+    const { data } = await api.patch<Contract>(`/contracts/${id}/confirmar`);
+    return data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao confirmar contrato");
+  }
+}
+
+export async function cancelContract(id: number): Promise<Contract> {
+  try {
+    const { data } = await api.patch<Contract>(`/contracts/${id}/cancelar`);
+    return data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao cancelar contrato");
   }
 }

@@ -206,9 +206,9 @@ export default function Contract() {
           <View style={styles.successIcon}>
             <Ionicons name="checkmark" size={48} color="#FFFFFF" />
           </View>
-          <Text style={styles.successTitle}>Contratação confirmada!</Text>
+          <Text style={styles.successTitle}>Solicitação enviada!</Text>
           <Text style={styles.successText}>
-            Seu serviço de <Text style={{ fontWeight: "700" }}>{titulo}</Text> foi agendado com sucesso.
+            Sua solicitação de <Text style={{ fontWeight: "700" }}>{titulo}</Text> foi enviada. Aguarde a confirmação do prestador.
           </Text>
 
           <View style={styles.successCard}>
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#3A7DFF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
