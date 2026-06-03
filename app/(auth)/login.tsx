@@ -30,16 +30,16 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    const user = await verifyUser(email, senha);
+    const result = await verifyUser(email, senha);
     setLoading(false);
 
-    if (!user) {
+    if (!result) {
       alert("E-mail ou senha incorretos");
       return;
     }
 
-    login(user);
-    router.replace("/(app)/home");
+    login(result.user, result.token);
+    router.replace(result.user.tipo === "admin" ? "/(admin)/dashboard" : "/(app)/home");
   }
 
   return (
