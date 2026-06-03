@@ -1,50 +1,148 @@
-# Welcome to your Expo app 👋
+# App Marketplace
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicativo mobile de marketplace de serviços domésticos e profissionais. Usuários encontram e contratam prestadores; prestadores cadastram serviços, gerenciam disponibilidade e confirmam contratos.
 
-## Get started
+## Início rápido
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+A API já está em produção — basta instalar as dependências e rodar o app:
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Escaneie o QR code com o **Expo Go** (Android) ou a câmera (iOS).
 
-## Learn more
+> Pressione `a` para abrir no emulador Android ou `i` para o simulador iOS.
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Pré-requisitos
 
-## Join the community
+| Ferramenta | Versão mínima |
+|---|---|
+| Node.js | 18+ |
+| Expo Go (celular) | SDK 52+ |
 
-Join our community of developers creating universal apps.
+Não é necessário instalar a Expo CLI globalmente. O `npx expo start` já cuida disso.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## Configuração da API
+
+O app aponta por padrão para a API em produção (`src/config/api.ts`):
+
+```
+https://api-marketplace-eta.vercel.app
+```
+
+Para usar uma instância local da API, edite `src/config/api.ts`:
+
+```ts
+export const API_URL = "http://SEU_IP_LOCAL:3000";
+```
+
+> Em dispositivos físicos, **não use `localhost`** — use o IP da sua máquina na rede local (ex: `192.168.1.10`).
+
+---
+
+## Funcionalidades
+
+### Usuário comum
+- Cadastro e login com persistência de sessão
+- Busca e filtro de serviços (categoria, preço máximo, ordenação)
+- Detalhe do serviço e perfil do prestador
+- Contratar serviço com agendamento (datas/horários do prestador) e pagamento (PIX ou cartão)
+- Acompanhar status dos contratos (Aguardando / Confirmado / Cancelado)
+- Chat com o prestador por contrato
+
+### Prestador
+- Cadastrar e gerenciar serviços
+- Definir disponibilidade semanal (dias e horários de 8h às 18h)
+- Receber solicitações de contrato e confirmar ou recusar
+- Chat com o cliente por contrato
+
+---
+
+## Fluxo de telas
+
+```
+index.tsx ──→ (carrega sessão do AsyncStorage)
+  ├── /(auth)/login      — usuário existente
+  └── /(auth)/register   — novo usuário (tipo: usuário ou prestador)
+
+Após login:
+/(app)/home              — categorias + serviços em destaque
+  ├── /(app)/services    — listagem com busca e filtros
+  │     └── /(app)/service/[id]          — detalhe do serviço
+  │           ├── /(app)/provider/[email] — perfil do prestador
+  │           └── /(app)/contract/[serviceId] — contratar (2 etapas)
+  │                 └── (sucesso) → home
+  │
+  ├── /(app)/my-services  — contratos ativos (usuário) / solicitações (prestador)
+  │     └── /(app)/chat/[contractId] — chat do contrato
+  │
+  └── /(app)/profile      — dados do usuário + ações
+        ├── /(app)/create-service  — cadastrar serviço (prestador)
+        └── /(app)/availability    — gerenciar disponibilidade semanal (prestador)
+```
+
+---
+
+## Estrutura do projeto
+
+```
+app/
+├── index.tsx                       # redireciona para home ou login
+├── _layout.tsx                     # AuthProvider global
+├── (auth)/
+│   ├── login.tsx
+│   └── register.tsx
+└── (app)/
+    ├── _layout.tsx                 # guarda de autenticação
+    ├── home.tsx
+    ├── services.tsx
+    ├── my-services.tsx
+    ├── profile.tsx
+    ├── create-service.tsx
+    ├── availability.tsx
+    ├── service/[id].tsx
+    ├── provider/[email].tsx
+    ├── contract/[serviceId].tsx
+    ├── schedule/[serviceId].tsx
+    └── chat/[contractId].tsx
+
+src/
+├── config/api.ts                   # URL base da API
+├── context/AuthContext.tsx         # estado global + persistência de sessão
+├── lib/axios.ts                    # instância do Axios
+├── storage/
+│   ├── authStorage.ts
+│   ├── serviceStorage.ts
+│   ├── contractStorage.ts
+│   ├── scheduleStorage.ts
+│   ├── messageStorage.ts
+│   └── availabilityStorage.ts
+└── types/
+    ├── User.ts
+    └── Service.ts
+```
+
+---
+
+## Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Framework | React Native + Expo (SDK 52) |
+| Roteamento | Expo Router (file-based) |
+| Linguagem | TypeScript |
+| HTTP | Axios |
+| Sessão | AsyncStorage |
+| Ícones | Expo Vector Icons (Ionicons) |
+
+---
+
+## API
+
+Este app consome a [api-marketplace](../api-marketplace/README.md), hospedada no Vercel. Consulte o README da API para detalhes dos endpoints.

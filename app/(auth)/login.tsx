@@ -1,4 +1,14 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState, useContext } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,14 +21,17 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [senhaVisivel, setSenhaVisivel] = useState(false);
 
   async function handleLogin() {
     if (!email || !senha) {
       alert("Preencha todos os campos");
       return;
     }
-
+    setLoading(true);
     const user = await verifyUser(email, senha);
+    setLoading(false);
 
     if (!user) {
       alert("E-mail ou senha incorretos");
@@ -30,90 +43,180 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right", "bottom"]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        {/* Brand */}
+        <View style={styles.brand}>
+          <View style={styles.brandIcon}>
+            <Ionicons name="storefront" size={32} color="#FFFFFF" />
+          </View>
+          <Text style={styles.brandName}>Marketplace</Text>
+          <Text style={styles.brandSub}>Serviços na palma da sua mão</Text>
+        </View>
 
-      <View style={styles.inputWrapper}>
-        <Ionicons name="mail-outline" size={20} color="#94A3B8" />
-        <TextInput
-          placeholder="E-mail"
-          placeholderTextColor="#94A3B8"
-          style={styles.input}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
+        {/* Form */}
+        <View style={styles.form}>
+          <Text style={styles.formTitle}>Entrar</Text>
 
-      <View style={styles.inputWrapper}>
-        <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" />
-        <TextInput
-          placeholder="Senha"
-          placeholderTextColor="#94A3B8"
-          secureTextEntry
-          style={styles.input}
-          onChangeText={setSenha}
-        />
-      </View>
+          <View style={styles.inputWrapper}>
+            <Ionicons name="mail-outline" size={18} color="#8E8E93" />
+            <TextInput
+              placeholder="E-mail"
+              placeholderTextColor="#8E8E93"
+              style={styles.input}
+              onChangeText={setEmail}
+              value={email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Entrar</Text>
-      </TouchableOpacity>
+          <View style={styles.inputWrapper}>
+            <Ionicons name="lock-closed-outline" size={18} color="#8E8E93" />
+            <TextInput
+              placeholder="Senha"
+              placeholderTextColor="#8E8E93"
+              secureTextEntry={!senhaVisivel}
+              style={styles.input}
+              onChangeText={setSenha}
+              value={senha}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={() => setSenhaVisivel((v) => !v)} hitSlop={8}>
+              <Ionicons
+                name={senhaVisivel ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color="#8E8E93"
+              />
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
-        <Text style={styles.link}>
-          Não possui conta? Cadastre-se
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonText}>Entrar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Não possui conta?</Text>
+          <TouchableOpacity onPress={() => router.push("/(auth)/register")} hitSlop={8}>
+            <Text style={styles.footerLink}>Cadastre-se</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#EEF2FF",
-    padding: 24,
-    justifyContent: "center",
+    backgroundColor: "#F2F2F7",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1E3A8A",
-    textAlign: "center",
-    marginBottom: 30,
+  flex: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 24,
+  },
+
+  // Brand
+  brand: {
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 16,
+  },
+  brandIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: "#3A7DFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  brandName: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#0D0D0D",
+  },
+  brandSub: {
+    fontSize: 14,
+    color: "#666666",
+  },
+
+  // Form
+  form: {
+    gap: 12,
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0D0D0D",
+    marginBottom: 4,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    paddingHorizontal: 15,
+    gap: 10,
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#CBD5F5",
+    borderColor: "#E5E5EA",
+    paddingHorizontal: 14,
+    height: 50,
   },
   input: {
     flex: 1,
-    paddingVertical: 15,
-    paddingLeft: 10,
-    color: "#000",
+    fontSize: 15,
+    color: "#0D0D0D",
+    paddingVertical: 0,
   },
   button: {
-    backgroundColor: "#4A6CF7",
-    padding: 16,
-    borderRadius: 30,
+    backgroundColor: "#3A7DFF",
+    height: 50,
+    borderRadius: 14,
     alignItems: "center",
-    marginTop: 10,
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
+    color: "#FFFFFF",
+    fontWeight: "700",
     fontSize: 16,
   },
-  link: {
-    color: "#4A6CF7",
-    textAlign: "center",
-    marginTop: 20,
+
+  // Footer
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  footerText: {
+    fontSize: 14,
+    color: "#666666",
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#3A7DFF",
   },
 });
