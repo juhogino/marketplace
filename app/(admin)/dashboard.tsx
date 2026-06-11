@@ -48,14 +48,16 @@ export default function AdminDashboard() {
   const { user, logout } = useContext(AuthContext);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setLoading(true);
+      setError(null);
       getAdminStats()
         .then((data) => { if (active) setStats(data); })
-        .catch(() => {})
+        .catch((e) => { if (active) setError(e.message ?? 'Erro ao carregar dados'); })
         .finally(() => { if (active) setLoading(false); });
       return () => { active = false; };
     }, [])
@@ -82,6 +84,13 @@ export default function AdminDashboard() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#FFFFFF" size="large" />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Ionicons name="wifi-outline" size={48} color="rgba(255,255,255,0.3)" />
+          <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 12, textAlign: 'center', paddingHorizontal: 32 }}>
+            {error}
+          </Text>
         </View>
       ) : (
         <ScrollView

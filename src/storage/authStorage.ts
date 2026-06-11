@@ -9,11 +9,18 @@ export async function saveUser(user: User): Promise<void> {
   }
 }
 
-export async function verifyUser(email: string, senha: string): Promise<User | null> {
+export async function verifyUser(
+  email: string,
+  senha: string
+): Promise<{ user: User; token: string } | null> {
   try {
-    const { data } = await api.post<User>("/users/login", { email, senha });
+    const { data } = await api.post<{ user: User; token: string }>("/users/login", { email, senha });
     return data;
-  } catch {
-    return null;
+  } catch (error: any) {
+    const status = error.response?.status;
+    if (status === 400 || status === 401 || status === 404) {
+      return null;
+    }
+    throw new Error("Erro de conexão. Verifique sua internet e tente novamente.");
   }
 }

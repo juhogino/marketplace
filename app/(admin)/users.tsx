@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useContext, useState } from 'react';
@@ -43,9 +44,25 @@ export default function AdminUsers() {
     }, [])
   );
 
+  async function execDelete(item: AdminUser) {
+    setDeletingId(item.id!);
+    try {
+      await deleteUser(item.id!);
+      setUsers((prev) => prev.filter((u) => u.id !== item.id));
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Não foi possível excluir o usuário.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function confirmDelete(item: AdminUser) {
     if (item.email === me?.email) {
       Alert.alert('Ação não permitida', 'Você não pode excluir sua própria conta.');
+      return;
+    }
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Excluir "${item.nome}" permanentemente?`)) execDelete(item);
       return;
     }
     Alert.alert(
@@ -53,21 +70,7 @@ export default function AdminUsers() {
       `Excluir "${item.nome}" permanentemente?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(item.id!);
-            try {
-              await deleteUser(item.id!);
-              setUsers((prev) => prev.filter((u) => u.id !== item.id));
-            } catch {
-              Alert.alert('Erro', 'Não foi possível excluir o usuário.');
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
+        { text: 'Excluir', style: 'destructive', onPress: () => execDelete(item) },
       ]
     );
   }

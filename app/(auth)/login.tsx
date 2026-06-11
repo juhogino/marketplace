@@ -30,16 +30,23 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    const user = await verifyUser(email, senha);
-    setLoading(false);
-
-    if (!user) {
-      alert("E-mail ou senha incorretos");
-      return;
+    try {
+      const result = await verifyUser(email, senha);
+      if (!result) {
+        alert("E-mail ou senha incorretos");
+        return;
+      }
+      login(result.user, result.token);
+      if (result.user.tipo === "admin") {
+        router.replace("/(admin)/dashboard");
+      } else {
+        router.replace("/(app)/home");
+      }
+    } catch (error: any) {
+      alert(error.message ?? "Erro ao conectar. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-
-    login(user);
-    router.replace("/(app)/home");
   }
 
   return (

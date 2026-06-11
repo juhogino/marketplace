@@ -20,7 +20,7 @@ export default function Profile() {
   const router = useRouter();
   const { user, logout } = useContext(AuthContext);
 
-  function handleLogout() {
+function handleLogout() {
     logout();
     router.replace('/(auth)/login');
   }

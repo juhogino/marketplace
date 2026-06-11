@@ -54,12 +54,14 @@ export default function MyServices() {
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setLoading(true);
+      setError(null);
 
       const fetch = isPrestador
         ? getContractsAsPrestador(user?.email ?? '')
@@ -67,7 +69,7 @@ export default function MyServices() {
 
       fetch
         .then((data) => { if (active) setContracts(data); })
-        .catch(() => {})
+        .catch((e) => { if (active) setError(e.message ?? 'Erro ao carregar contratos'); })
         .finally(() => { if (active) setLoading(false); });
 
       return () => { active = false; };
@@ -260,6 +262,11 @@ export default function MyServices() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#3A7DFF" size="large" />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Ionicons name="wifi-outline" size={48} color="#C7C7CC" />
+          <Text style={styles.emptyText}>{error}</Text>
         </View>
       ) : (
         <FlatList

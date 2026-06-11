@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState } from 'react';
@@ -36,27 +37,29 @@ export default function AdminServices() {
     }, [])
   );
 
+  async function execDelete(item: Service) {
+    setDeletingId(item.id);
+    try {
+      await deleteService(item.id);
+      setServices((prev) => prev.filter((s) => s.id !== item.id));
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Não foi possível excluir o serviço.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function confirmDelete(item: Service) {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Excluir "${item.titulo}" permanentemente?`)) execDelete(item);
+      return;
+    }
     Alert.alert(
       'Excluir serviço',
       `Excluir "${item.titulo}" permanentemente?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(item.id);
-            try {
-              await deleteService(item.id);
-              setServices((prev) => prev.filter((s) => s.id !== item.id));
-            } catch {
-              Alert.alert('Erro', 'Não foi possível excluir o serviço.');
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
+        { text: 'Excluir', style: 'destructive', onPress: () => execDelete(item) },
       ]
     );
   }

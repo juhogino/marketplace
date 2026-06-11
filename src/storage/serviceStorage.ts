@@ -5,8 +5,8 @@ export async function getServices(): Promise<Service[]> {
   try {
     const { data } = await api.get<Service[]>("/services");
     return data;
-  } catch {
-    return [];
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao carregar serviços");
   }
 }
 

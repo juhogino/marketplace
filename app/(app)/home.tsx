@@ -35,6 +35,7 @@ export default function Home() {
 
   const [services, setServices]       = useState<Service[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
   const [busca, setBusca]             = useState('');
   const [listaHeight, setListaHeight] = useState(0);
 
@@ -42,9 +43,10 @@ export default function Home() {
     useCallback(() => {
       let active = true;
       setLoading(true);
+      setError(null);
       getServices()
         .then((data) => { if (active) setServices(data); })
-        .catch(() => {})
+        .catch((e) => { if (active) setError(e.message ?? 'Erro ao carregar serviços'); })
         .finally(() => { if (active) setLoading(false); });
       return () => { active = false; };
     }, [])
@@ -160,6 +162,10 @@ export default function Home() {
         >
           {loading || listaHeight === 0 ? (
             <ActivityIndicator color="#FFFFFF" style={styles.loader} />
+          ) : error ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyCardText}>{error}</Text>
+            </View>
           ) : servicosVisiveis.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyCardText}>Nenhum serviço disponível</Text>

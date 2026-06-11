@@ -40,8 +40,8 @@ export async function getMyContracts(userEmail: string): Promise<Contract[]> {
       params: { userEmail },
     });
     return data;
-  } catch {
-    return [];
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao carregar contratos");
   }
 }
 
@@ -51,8 +51,8 @@ export async function getContractsAsPrestador(prestadorEmail: string): Promise<C
       params: { prestadorEmail },
     });
     return data;
-  } catch {
-    return [];
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao carregar contratos");
   }
 }
 

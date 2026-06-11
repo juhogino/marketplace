@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState } from 'react';
@@ -46,51 +47,63 @@ export default function AdminContracts() {
     }, [])
   );
 
+  async function execChangeStatus(item: Contract, s: 'pendente' | 'confirmado' | 'cancelado') {
+    setActionId(item.id);
+    try {
+      const updated = await updateContractStatus(item.id, s);
+      setContracts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Não foi possível alterar o status.');
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function execDelete(item: Contract) {
+    setActionId(item.id);
+    try {
+      await deleteContract(item.id);
+      setContracts((prev) => prev.filter((c) => c.id !== item.id));
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Não foi possível excluir o contrato.');
+    } finally {
+      setActionId(null);
+    }
+  }
+
   function handleChangeStatus(item: Contract) {
+    const options = STATUS_OPTIONS.filter((s) => s !== item.status);
+    if (Platform.OS === 'web') {
+      const labels = options.map((s, i) => `${i + 1}) ${STATUS_CONFIG[s].label}`).join('\n');
+      const input = window.prompt(`Alterar status de "${item.titulo}":\n${labels}\n\nDigite o número:`);
+      const idx = parseInt(input ?? '') - 1;
+      if (!isNaN(idx) && options[idx]) execChangeStatus(item, options[idx]);
+      return;
+    }
     Alert.alert(
       'Alterar status',
       `Contrato: ${item.titulo}`,
       [
-        ...STATUS_OPTIONS.filter((s) => s !== item.status).map((s) => ({
+        ...options.map((s) => ({
           text: STATUS_CONFIG[s].label,
-          onPress: async () => {
-            setActionId(item.id);
-            try {
-              const updated = await updateContractStatus(item.id, s);
-              setContracts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-            } catch {
-              Alert.alert('Erro', 'Não foi possível alterar o status.');
-            } finally {
-              setActionId(null);
-            }
-          },
+          onPress: () => execChangeStatus(item, s),
         })),
-        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' as const },
       ]
     );
   }
 
   function confirmDelete(item: Contract) {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Excluir contrato de "${item.titulo}" permanentemente?`)) execDelete(item);
+      return;
+    }
     Alert.alert(
       'Excluir contrato',
       `Excluir contrato de "${item.titulo}" permanentemente?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            setActionId(item.id);
-            try {
-              await deleteContract(item.id);
-              setContracts((prev) => prev.filter((c) => c.id !== item.id));
-            } catch {
-              Alert.alert('Erro', 'Não foi possível excluir o contrato.');
-            } finally {
-              setActionId(null);
-            }
-          },
-        },
+        { text: 'Excluir', style: 'destructive', onPress: () => execDelete(item) },
       ]
     );
   }

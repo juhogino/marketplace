@@ -52,6 +52,7 @@ export default function Services() {
 
   const [services, setServices]       = useState<Service[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
   const [busca, setBusca]             = useState(queryParam ?? "");
   const [filtroAberto, setFiltroAberto] = useState(false);
 
@@ -64,9 +65,10 @@ export default function Services() {
     useCallback(() => {
       let active = true;
       setLoading(true);
+      setError(null);
       getServices()
         .then((data) => { if (active) setServices(data); })
-        .catch(() => {})
+        .catch((e) => { if (active) setError(e.message ?? 'Erro ao carregar serviços'); })
         .finally(() => { if (active) setLoading(false); });
       return () => { active = false; };
     }, [])
@@ -272,6 +274,11 @@ export default function Services() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#3A7DFF" size="large" />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Ionicons name="wifi-outline" size={44} color="#C7C7CC" />
+          <Text style={styles.emptyText}>{error}</Text>
         </View>
       ) : (
         <FlatList
