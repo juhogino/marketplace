@@ -4,10 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TABS = [
-  { name: 'dashboard', label: 'Dashboard', icon: 'grid-outline' as const,   iconActive: 'grid' as const,        route: '/(admin)/dashboard', match: '/dashboard' },
-  { name: 'users',     label: 'Usuários',  icon: 'people-outline' as const,  iconActive: 'people' as const,      route: '/(admin)/users',     match: '/users'     },
-  { name: 'services',  label: 'Serviços',  icon: 'list-outline' as const,    iconActive: 'list' as const,        route: '/(admin)/services',  match: '/services'  },
-  { name: 'contracts', label: 'Contratos', icon: 'receipt-outline' as const, iconActive: 'receipt' as const,     route: '/(admin)/contracts', match: '/contracts' },
+  { name: 'dashboard', label: 'Dashboard', icon: 'grid-outline' as const,   iconActive: 'grid' as const,    route: '/(admin)/dashboard', match: '/dashboard' },
+  { name: 'users',     label: 'Usuários',  icon: 'people-outline' as const,  iconActive: 'people' as const,  route: '/(admin)/users',     match: '/users'     },
+  { name: 'services',  label: 'Serviços',  icon: 'list-outline' as const,    iconActive: 'list' as const,    route: '/(admin)/services',  match: '/services'  },
+  { name: 'contracts', label: 'Contratos', icon: 'receipt-outline' as const, iconActive: 'receipt' as const, route: '/(admin)/contracts', match: '/contracts' },
 ] as const;
 
 export default function AdminTabBar() {

@@ -115,6 +115,13 @@ export default function AdminDashboard() {
               color="#8B5CF6"
               onPress={() => router.push('/(admin)/users' as any)}
             />
+            <StatCard
+              icon="shield-outline"
+              label="Admins"
+              value={stats?.admins ?? 0}
+              color="#EF4444"
+              onPress={() => router.push('/(admin)/users' as any)}
+            />
           </View>
 
           {/* Serviços */}
@@ -155,9 +162,15 @@ export default function AdminDashboard() {
             />
             <StatCard
               icon="close-circle-outline"
+              label="Rejeitados"
+              value={stats?.contratos.rejeitado ?? 0}
+              color="#F97316"
+            />
+            <StatCard
+              icon="ban-outline"
               label="Cancelados"
               value={stats?.contratos.cancelado ?? 0}
-              color="#EF4444"
+              color="#8E8E93"
             />
           </View>
 

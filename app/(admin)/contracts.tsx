@@ -20,14 +20,15 @@ import {
 import { Contract } from '@/src/storage/contractStorage';
 import AdminTabBar from '@/components/AdminTabBar';
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pendente:   { label: 'Aguardando', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)'  },
   confirmado: { label: 'Confirmado', color: '#4CAF50', bg: 'rgba(76,175,80,0.15)'   },
-  cancelado:  { label: 'Cancelado',  color: '#EF4444', bg: 'rgba(239,68,68,0.15)'   },
+  rejeitado:  { label: 'Rejeitado',  color: '#F97316', bg: 'rgba(249,115,22,0.15)'  },
+  cancelado:  { label: 'Cancelado',  color: '#8E8E93', bg: 'rgba(142,142,147,0.15)' },
 };
 
-const STATUS_OPTIONS: Array<'pendente' | 'confirmado' | 'cancelado'> = [
-  'pendente', 'confirmado', 'cancelado',
+const STATUS_OPTIONS: Array<'pendente' | 'confirmado' | 'rejeitado' | 'cancelado'> = [
+  'pendente', 'confirmado', 'rejeitado', 'cancelado',
 ];
 
 export default function AdminContracts() {
@@ -47,7 +48,7 @@ export default function AdminContracts() {
     }, [])
   );
 
-  async function execChangeStatus(item: Contract, s: 'pendente' | 'confirmado' | 'cancelado') {
+  async function execChangeStatus(item: Contract, s: 'pendente' | 'confirmado' | 'rejeitado' | 'cancelado') {
     setActionId(item.id);
     try {
       const updated = await updateContractStatus(item.id, s);
@@ -88,7 +89,7 @@ export default function AdminContracts() {
           text: STATUS_CONFIG[s].label,
           onPress: () => execChangeStatus(item, s),
         })),
-        { text: 'Cancelar', style: 'cancel' as const },
+        { text: 'Fechar', style: 'cancel' as const },
       ]
     );
   }
