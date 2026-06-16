@@ -106,14 +106,21 @@ export default function AdminDashboard() {
               label="Usuários"
               value={stats?.usuarios ?? 0}
               color="#3A7DFF"
-              onPress={() => router.push('/(admin)/users' as any)}
+              onPress={() => router.push({ pathname: '/(admin)/users' as any, params: { tipo: 'usuario' } })}
             />
             <StatCard
               icon="construct-outline"
               label="Prestadores"
               value={stats?.prestadores ?? 0}
               color="#8B5CF6"
-              onPress={() => router.push('/(admin)/users' as any)}
+              onPress={() => router.push({ pathname: '/(admin)/users' as any, params: { tipo: 'prestador' } })}
+            />
+            <StatCard
+              icon="shield-outline"
+              label="Admins"
+              value={stats?.admins ?? 0}
+              color="#EF4444"
+              onPress={() => router.push({ pathname: '/(admin)/users' as any, params: { tipo: 'admin' } })}
             />
           </View>
 
@@ -155,9 +162,15 @@ export default function AdminDashboard() {
             />
             <StatCard
               icon="close-circle-outline"
+              label="Rejeitados"
+              value={stats?.contratos.rejeitado ?? 0}
+              color="#F97316"
+            />
+            <StatCard
+              icon="ban-outline"
               label="Cancelados"
               value={stats?.contratos.cancelado ?? 0}
-              color="#EF4444"
+              color="#8E8E93"
             />
           </View>
 

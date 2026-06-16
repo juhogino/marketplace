@@ -41,9 +41,30 @@ export async function getMySchedules(userEmail: string): Promise<Schedule[]> {
   }
 }
 
-export async function cancelSchedule(id: number): Promise<void> {
+export async function getSchedulesAsPrestador(prestadorEmail: string): Promise<Schedule[]> {
   try {
-    await api.patch(`/schedules/${id}/cancelar`);
+    const { data } = await api.get<Schedule[]>("/schedules", {
+      params: { prestadorEmail },
+    });
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+export async function confirmSchedule(id: number): Promise<Schedule> {
+  try {
+    const { data } = await api.patch<Schedule>(`/schedules/${id}/confirmar`);
+    return data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao confirmar agendamento");
+  }
+}
+
+export async function cancelSchedule(id: number): Promise<Schedule> {
+  try {
+    const { data } = await api.patch<Schedule>(`/schedules/${id}/cancelar`);
+    return data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message ?? "Erro ao cancelar agendamento");
   }
