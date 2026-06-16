@@ -90,6 +90,15 @@ function handleLogout() {
               <Text style={styles.actionButtonText}>Gerenciar disponibilidade</Text>
               <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(app)/wallet' as any)}
+            >
+              <Ionicons name="wallet-outline" size={20} color="#3A7DFF" />
+              <Text style={styles.actionButtonText}>Minha carteira</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
           </>
         )}
 
