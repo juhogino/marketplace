@@ -16,6 +16,7 @@ import {
   getMyContracts,
   getContractsAsPrestador,
   confirmContract,
+  rejectContract,
   cancelContract,
   Contract,
 } from '@/src/storage/contractStorage';
@@ -26,24 +27,30 @@ const METODO_LABEL: Record<string, string> = {
   cartao: 'Cartão',
 };
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   pendente: {
     label: 'Aguardando',
     color: '#F59E0B',
     bg: '#FEF3C7',
-    icon: 'time-outline' as const,
+    icon: 'time-outline',
   },
   confirmado: {
     label: 'Confirmado',
     color: '#4CAF50',
     bg: '#E8F5E9',
-    icon: 'checkmark-circle-outline' as const,
+    icon: 'checkmark-circle-outline',
+  },
+  rejeitado: {
+    label: 'Rejeitado',
+    color: '#EF4444',
+    bg: '#FEE2E2',
+    icon: 'close-circle-outline',
   },
   cancelado: {
     label: 'Cancelado',
-    color: '#EF4444',
-    bg: '#FEE2E2',
-    icon: 'close-circle-outline' as const,
+    color: '#8E8E93',
+    bg: '#F2F2F7',
+    icon: 'ban-outline',
   },
 };
 
@@ -76,17 +83,14 @@ export default function MyServices() {
     }, [user?.email, isPrestador])
   );
 
-  function updateContractInList(updated: Contract) {
-    setContracts((prev) =>
-      prev.map((c) => (c.id === updated.id ? updated : c))
-    );
+  function updateContract(updated: Contract) {
+    setContracts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
   }
 
   async function handleConfirmar(item: Contract) {
     setActionLoading(item.id);
     try {
-      const updated = await confirmContract(item.id);
-      updateContractInList(updated);
+      updateContract(await confirmContract(item.id));
     } catch {
       Alert.alert('Erro', 'Não foi possível confirmar o contrato.');
     } finally {
@@ -94,29 +98,26 @@ export default function MyServices() {
     }
   }
 
+  async function handleRejeitar(item: Contract) {
+    setActionLoading(item.id);
+    try {
+      updateContract(await rejectContract(item.id));
+    } catch {
+      Alert.alert('Erro', 'Não foi possível rejeitar o contrato.');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleCancelar(item: Contract) {
-    Alert.alert(
-      'Cancelar contrato',
-      `Deseja cancelar "${item.titulo}"?`,
-      [
-        { text: 'Não', style: 'cancel' },
-        {
-          text: 'Cancelar contrato',
-          style: 'destructive',
-          onPress: async () => {
-            setActionLoading(item.id);
-            try {
-              const updated = await cancelContract(item.id);
-              updateContractInList(updated);
-            } catch {
-              Alert.alert('Erro', 'Não foi possível cancelar o contrato.');
-            } finally {
-              setActionLoading(null);
-            }
-          },
-        },
-      ]
-    );
+    setActionLoading(item.id);
+    try {
+      updateContract(await cancelContract(item.id));
+    } catch {
+      Alert.alert('Erro', 'Não foi possível cancelar o contrato.');
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   function openChat(item: Contract) {
@@ -135,11 +136,12 @@ export default function MyServices() {
     const status = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pendente;
     const isActioning = actionLoading === item.id;
     const isPendente = item.status === 'pendente';
-    const isCancelado = item.status === 'cancelado';
+    const isConfirmado = item.status === 'confirmado';
+    const isEncerrado = item.status === 'cancelado' || item.status === 'rejeitado';
 
     return (
       <View style={styles.card}>
-        {/* Topo: ícone + título + preço */}
+        {/* Topo */}
         <View style={styles.cardTop}>
           <View style={styles.iconBox}>
             <Ionicons name="construct-outline" size={20} color="#3A7DFF" />
@@ -153,7 +155,7 @@ export default function MyServices() {
 
         <View style={styles.divider} />
 
-        {/* Metadados + badge de status */}
+        {/* Metadados */}
         <View style={styles.cardMeta}>
           {item.data ? (
             <View style={styles.metaRow}>
@@ -175,12 +177,12 @@ export default function MyServices() {
           </View>
         </View>
 
-        {/* Ações do prestador para contratos pendentes */}
+        {/* Prestador: Rejeitar / Confirmar — só quando pendente */}
         {isPrestador && isPendente && (
           <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={[styles.actionBtn, styles.actionBtnCancel]}
-              onPress={() => handleCancelar(item)}
+              style={[styles.actionBtn, styles.actionBtnReject]}
+              onPress={() => handleRejeitar(item)}
               disabled={isActioning}
               activeOpacity={0.75}
             >
@@ -189,7 +191,7 @@ export default function MyServices() {
               ) : (
                 <>
                   <Ionicons name="close-outline" size={16} color="#EF4444" />
-                  <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Recusar</Text>
+                  <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Rejeitar</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -211,10 +213,10 @@ export default function MyServices() {
           </View>
         )}
 
-        {/* Cancelar pelo usuário se pendente */}
-        {!isPrestador && isPendente && (
+        {/* Cancelar — disponível para ambos apenas após confirmação */}
+        {isConfirmado && (
           <TouchableOpacity
-            style={styles.cancelUserBtn}
+            style={styles.cancelBtn}
             onPress={() => handleCancelar(item)}
             disabled={isActioning}
             activeOpacity={0.75}
@@ -222,13 +224,13 @@ export default function MyServices() {
             {isActioning ? (
               <ActivityIndicator size="small" color="#EF4444" />
             ) : (
-              <Text style={styles.cancelUserBtnText}>Cancelar solicitação</Text>
+              <Text style={styles.cancelBtnText}>Cancelar contrato</Text>
             )}
           </TouchableOpacity>
         )}
 
-        {/* Chat — disponível enquanto não cancelado */}
-        {!isCancelado && (
+        {/* Chat — disponível enquanto não encerrado */}
+        {!isEncerrado && (
           <TouchableOpacity
             style={styles.chatButton}
             onPress={() => openChat(item)}
@@ -245,10 +247,6 @@ export default function MyServices() {
   }
 
   const screenTitle = isPrestador ? 'Solicitações' : 'Meus Serviços';
-  const emptyIcon = isPrestador ? 'chatbubbles-outline' as const : 'receipt-outline' as const;
-  const emptyText = isPrestador
-    ? 'Nenhuma solicitação recebida ainda'
-    : 'Nenhum serviço contratado ainda';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -277,8 +275,16 @@ export default function MyServices() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Ionicons name={emptyIcon} size={48} color="#C7C7CC" />
-              <Text style={styles.emptyText}>{emptyText}</Text>
+              <Ionicons
+                name={isPrestador ? 'chatbubbles-outline' : 'receipt-outline'}
+                size={48}
+                color="#C7C7CC"
+              />
+              <Text style={styles.emptyText}>
+                {isPrestador
+                  ? 'Nenhuma solicitação recebida ainda'
+                  : 'Nenhum serviço contratado ainda'}
+              </Text>
               {!isPrestador && (
                 <TouchableOpacity
                   style={styles.browseButton}
@@ -396,7 +402,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
   },
 
-  // Meta row
+  // Meta
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -425,7 +431,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Ações prestador
+  // Ações
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -439,7 +445,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  actionBtnCancel: {
+  actionBtnReject: {
     backgroundColor: '#FEE2E2',
   },
   actionBtnConfirm: {
@@ -450,12 +456,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Cancelar usuário
-  cancelUserBtn: {
+  // Cancelar
+  cancelBtn: {
     alignItems: 'center',
     paddingVertical: 10,
   },
-  cancelUserBtnText: {
+  cancelBtnText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#EF4444',

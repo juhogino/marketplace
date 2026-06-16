@@ -10,7 +10,7 @@ export interface Contract {
   metodoPagamento: "pix" | "cartao";
   data?: string;
   hora?: string;
-  status: "pendente" | "confirmado" | "cancelado";
+  status: "pendente" | "confirmado" | "rejeitado" | "cancelado";
   criadoEm: string;
 }
 
@@ -62,6 +62,15 @@ export async function confirmContract(id: number): Promise<Contract> {
     return data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message ?? "Erro ao confirmar contrato");
+  }
+}
+
+export async function rejectContract(id: number): Promise<Contract> {
+  try {
+    const { data } = await api.patch<Contract>(`/contracts/${id}/rejeitar`);
+    return data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message ?? "Erro ao rejeitar contrato");
   }
 }
 
