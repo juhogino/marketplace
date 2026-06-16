@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useContext, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '@/src/context/AuthContext';
 import { getAllUsers, createUser, updateUser, deleteUser, AdminUser } from '@/src/storage/adminStorage';
@@ -32,6 +32,7 @@ function getInitial(text: string) {
   return (text ?? '').trim().charAt(0).toUpperCase() || '?';
 }
 
+type TipoFilter = 'todos' | 'usuario' | 'prestador' | 'admin';
 type FormMode = 'create' | 'edit';
 
 interface FormState {
@@ -44,11 +45,27 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { nome: '', email: '', senha: '', tipo: 'usuario', regiao: '' };
 
+const FILTER_OPTIONS: Array<{ key: TipoFilter; label: string; color: string }> = [
+  { key: 'todos',     label: 'Todos',      color: 'rgba(255,255,255,0.7)' },
+  { key: 'usuario',   label: 'Usuários',   color: '#3A7DFF' },
+  { key: 'prestador', label: 'Prestadores', color: '#8B5CF6' },
+  { key: 'admin',     label: 'Admins',     color: '#EF4444' },
+];
+
 export default function AdminUsers() {
   const { user: me } = useContext(AuthContext);
-  const [users, setUsers] = useState<AdminUser[]>([]);
+  const { tipo: tipoParam } = useLocalSearchParams<{ tipo?: string }>();
+
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [filter, setFilter] = useState<TipoFilter>(
+    (tipoParam as TipoFilter) ?? 'todos'
+  );
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<number | null>(null);
+
+  const users = filter === 'todos'
+    ? allUsers
+    : allUsers.filter((u) => u.tipo === filter);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<FormMode>('create');
@@ -60,12 +77,13 @@ export default function AdminUsers() {
     useCallback(() => {
       let active = true;
       setLoading(true);
+      setFilter((tipoParam as TipoFilter) ?? 'todos');
       getAllUsers()
-        .then((data) => { if (active) setUsers(data); })
+        .then((data) => { if (active) setAllUsers(data); })
         .catch(() => {})
         .finally(() => { if (active) setLoading(false); });
       return () => { active = false; };
-    }, [])
+    }, [tipoParam])
   );
 
   function openCreate() {
@@ -108,14 +126,14 @@ export default function AdminUsers() {
           tipo: form.tipo,
           regiao: form.regiao.trim(),
         });
-        setUsers((prev) => [created, ...prev]);
+        setAllUsers((prev) => [created, ...prev]);
       } else {
         const updated = await updateUser(editingId!, {
           nome: form.nome.trim(),
           tipo: form.tipo,
           regiao: form.regiao.trim(),
         });
-        setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+        setAllUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
       }
       setModalVisible(false);
     } catch (e: any) {
@@ -129,7 +147,7 @@ export default function AdminUsers() {
     setActionId(item.id!);
     try {
       await deleteUser(item.id!);
-      setUsers((prev) => prev.filter((u) => u.id !== item.id));
+      setAllUsers((prev) => prev.filter((u) => u.id !== item.id));
     } catch (e: any) {
       Alert.alert('Erro', e.message ?? 'Não foi possível excluir o usuário.');
     } finally {
@@ -210,6 +228,25 @@ export default function AdminUsers() {
         </TouchableOpacity>
       </View>
 
+      {/* Filtro de tipo */}
+      <View style={styles.filterRow}>
+        {FILTER_OPTIONS.map((opt) => {
+          const active = filter === opt.key;
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.filterChip, active && { borderColor: opt.color, backgroundColor: opt.color + '22' }]}
+              onPress={() => setFilter(opt.key)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.filterChipText, active && { color: opt.color }]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#FFFFFF" size="large" />
@@ -224,7 +261,11 @@ export default function AdminUsers() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="people-outline" size={44} color="rgba(255,255,255,0.2)" />
-              <Text style={styles.emptyText}>Nenhum usuário cadastrado</Text>
+              <Text style={styles.emptyText}>
+                {filter === 'todos'
+                  ? 'Nenhum usuário cadastrado'
+                  : `Nenhum ${FILTER_OPTIONS.find((o) => o.key === filter)?.label.toLowerCase()} cadastrado`}
+              </Text>
             </View>
           }
         />
@@ -353,6 +394,25 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center', justifyContent: 'center',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'flex-start',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.4)',
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 60 },
   emptyText: { fontSize: 15, color: 'rgba(255,255,255,0.35)' },
