@@ -146,3 +146,15 @@ src/
 ## API
 
 Este app consome a [api-marketplace](../api-marketplace/README.md), hospedada no Vercel. Consulte o README da API para detalhes dos endpoints.
+
+---
+
+## Integrantes do grupo
+
+| Nome | RA |
+|---|---|
+| Ana Luísa Santos Corrêa | UC22200043 |
+| Filype Ottoni Campos | UC22200168 |
+| Gabriel da Silva Cabral | UC24102343 |
+| Isadora Andrade Santos | UC22200777 |
+| Julia Ogino Andrade | UC22101304 |
