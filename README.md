@@ -19,10 +19,10 @@ Escaneie o QR code com o **Expo Go** (Android) ou a câmera (iOS).
 
 ## Pré-requisitos
 
-| Ferramenta | Versão mínima |
-|---|---|
-| Node.js | 18+ |
-| Expo Go (celular) | SDK 52+ |
+| Ferramenta        | Versão mínima |
+| ----------------- | ------------- |
+| Node.js           | 18+           |
+| Expo Go (celular) | SDK 52+       |
 
 Não é necessário instalar a Expo CLI globalmente. O `npx expo start` já cuida disso.
 
@@ -49,6 +49,7 @@ export const API_URL = "http://SEU_IP_LOCAL:3000";
 ## Funcionalidades
 
 ### Usuário comum
+
 - Cadastro e login com persistência de sessão
 - Busca e filtro de serviços (categoria, preço máximo, ordenação)
 - Detalhe do serviço e perfil do prestador
@@ -57,6 +58,7 @@ export const API_URL = "http://SEU_IP_LOCAL:3000";
 - Chat com o prestador por contrato
 
 ### Prestador
+
 - Cadastrar e gerenciar serviços
 - Definir disponibilidade semanal (dias e horários de 8h às 18h)
 - Receber solicitações de contrato e confirmar ou recusar
@@ -132,14 +134,14 @@ src/
 
 ## Stack
 
-| Camada | Tecnologia |
-|---|---|
-| Framework | React Native + Expo (SDK 52) |
-| Roteamento | Expo Router (file-based) |
-| Linguagem | TypeScript |
-| HTTP | Axios |
-| Sessão | AsyncStorage |
-| Ícones | Expo Vector Icons (Ionicons) |
+| Camada     | Tecnologia                   |
+| ---------- | ---------------------------- |
+| Framework  | React Native + Expo (SDK 52) |
+| Roteamento | Expo Router (file-based)     |
+| Linguagem  | TypeScript                   |
+| HTTP       | Axios                        |
+| Sessão     | AsyncStorage                 |
+| Ícones     | Expo Vector Icons (Ionicons) |
 
 ---
 
@@ -151,10 +153,10 @@ Este app consome a [api-marketplace](../api-marketplace/README.md), hospedada no
 
 ## Integrantes do grupo
 
-| Nome | RA |
-|---|---|
-| Ana Luísa Santos Corrêa | UC22200043 |
-| Filype Ottoni Campos | UC22200168 |
-| Gabriel da Silva Cabral | UC24102343 |
-| Isadora Andrade Santos | UC22200777 |
-| Julia Ogino Andrade | UC22101304 |
+| Nome                    | RA         | Atribuições                                                 |
+| ----------------------- | ---------- | ----------------------------------------------------------- |
+| Ana Luísa Santos Corrêa | UC22200043 | Design das telas no Figma                                   |
+| Filype Ottoni Campos    | UC22200168 | Implementação do fluxo da carteira (backend e frontend)     |
+| Gabriel da Silva Cabral | UC24102343 | Implementação do frontend e fluxo de contratação de serviço |
+| Isadora Andrade Santos  | UC22200777 | Implementação de fluxo de usuário comum                     |
+| Julia Ogino Andrade     | UC22101304 | Implementação do sistema de login e tela de admin           |
